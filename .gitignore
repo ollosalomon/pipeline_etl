@@ -1,0 +1,37 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+ENV/
+*.env
+
+# Log files
+airflow/logs/*
+!airflow/logs/.gitkeep
+
+# Dags cache files
+airflow/dags/__pycache__/
+
+# IDE configuration files
+.vscode/
+.idea/
+
+# Generated files
+*.egg-info/
+dist/
+build/
+
+# Databases
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp

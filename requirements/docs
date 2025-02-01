@@ -1,0 +1,4 @@
+mkdocs==1.4.2 # https://github.com/mkdocs/mkdocs
+mkdocstrings==0.19.0 # https://github.com/mkdocstrings/mkdocstrings
+mkdocs-material==8.5.7 # https://github.com/squidfunk/mkdocs-material
+mkdocstrings-python==0.7.1 # https://github.com/mkdocstrings/python

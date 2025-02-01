@@ -1,0 +1,133 @@
+volumes:
+  postgres-db-volume:
+  airflow-logs:
+  airflow-dags:
+  airflow-plugins:
+  pgadmin-data:
+
+services:
+  postgres:
+    image: postgres:13
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" 
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    env_file:
+      - ./.env
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+  
+  airflow-init:
+    image: apache/airflow:2.7.1-python3.9
+    depends_on:
+      - postgres
+    command: >
+      bash -c "
+      airflow db migrate && 
+      airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin"
+    env_file:
+      - ./.env
+
+  airflow-webserver:
+    image: apache/airflow:2.7.1-python3.9
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init: 
+        condition: service_completed_successfully
+    env_file:
+      - ./.env
+    restart: always
+    command: ["webserver"]
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1-python3.9
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init: 
+        condition: service_completed_successfully
+    env_file:
+      - ./.env
+    restart: always
+    command: ["scheduler"]
+
+  airflow-worker:
+    image: apache/airflow:2.7.1-python3.9
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+    depends_on:
+      - redis
+      - postgres
+      - airflow-init
+    env_file:
+      - ./.env
+    restart: always
+    command: ["celery", "worker"]
+
+
+
+  airflow-reloader:
+    image: apache/airflow:2.7.1-python3.9
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+    env_file:
+      - ./.env
+    entrypoint: ["python", "/opt/airflow/dags/reloader.py"]
+    depends_on:
+      - airflow-webserver
+      - airflow-scheduler
+    restart: always
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: debug@debug.com
+      PGADMIN_DEFAULT_PASSWORD: debug
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    restart: always
+
+
+  docs:
+    build:
+      context: .
+      dockerfile: ./docs/Dockerfile
+    image: pipeline_etl_docs
+    container_name: pipeline_etl_docs
+    volumes:
+      - .:/app/:z
+    restart: always
+    ports:
+      - "9021:9000"
+    env_file:
+      - ./.env
+    command: mkdocs serve -a 0.0.0.0:9000

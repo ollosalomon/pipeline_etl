@@ -1,0 +1,66 @@
+site_name: ML Engine V3 Docs
+repo_url: https://github.com/ollosalomon/pipeline_etl.git
+repo_url_gitfront: https://gitfront.io/r/ollosalomon/Asn2cQmpnAzQ/pipeline-etl/
+site_description: This site
+site_author: author
+copyright: Copyright © 2022 Ollo Data.
+remote_branch: gh-pages
+remote_name: origin
+
+
+theme:
+  name: 'material'
+  custom_dir: ./
+  language: en
+  font:
+    text: Lato
+    code: JetBrains Mono
+  feature:
+    tabs: true
+  palette:
+    primary: red
+    accent: manticore-orange
+  logo: 
+    kd.png
+  extra:
+    version: 1.0
+
+
+nav:
+    - About: about.md
+
+
+
+markdown_extensions:
+  - admonition # add info/warn/error admonitions
+  - pymdownx.arithmatex # fancy math styling
+  - markdown.extensions.attr_list # Customn attributes for elements
+  - pymdownx.betterem: # better bolding styles
+      smart_enable: all
+  - pymdownx.caret # insert and superscript
+  - pymdownx.critic # editing allowed
+  - pymdownx.details # admonition style details
+  - pymdownx.emoji: # emojis
+      emoji_generator: !!python/name:pymdownx.emoji.to_svg
+  - pymdownx.inlinehilite # inline code highlighting
+  - pymdownx.magiclink # autolinks and shorthand
+  - pymdownx.mark # highlights
+  - pymdownx.smartsymbols # special symbols like arrows
+  - pymdownx.superfences # tabbed content (e.g. with code)
+  - pymdownx.tasklist: # task list
+      custom_checkbox: true
+  - pymdownx.tilde # strike-through
+  - codehilite: # highlight code blocks
+      linenums: true
+      use_pygments: false
+  - toc: # add linking to headers
+      permalink: true
+
+plugins:
+- search:
+    indexing: 'full'
+- mkdocstrings:
+    handlers:
+      python:
+        paths: [..]
+

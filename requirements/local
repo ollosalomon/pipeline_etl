@@ -1,0 +1,3 @@
+-r local.in
+
+watchfiles==0.16.1  # https://github.com/samuelcolvin/watchfiles

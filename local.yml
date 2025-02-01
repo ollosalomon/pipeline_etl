@@ -1,0 +1,301 @@
+volumes:
+  postgres-db-volume:
+  airflow-logs:
+  airflow-dags:
+  airflow-plugins:
+  pgadmin-data:
+
+# Configuration d'ancre pour Airflow
+x-airflow-common:
+  &airflow-common
+  build:
+    context: .
+    dockerfile: ./Dockerfile
+    args:
+      BUILD_ENVIRONMENT: "local"
+  env_file:
+    - ./.env
+  volumes:
+    - ./airflow/dags:/hr-airflow/airflow/dags
+    - ./airflow/data:/hr-airflow/airflow/data
+    - ./airflow/logs:/hr-airflow/airflow/logs
+    - ./airflow/plugins:/hr-airflow/airflow/plugins
+    - ./airflow/config/airflow.cfg:/hr-airflow/airflow/airflow.cfg
+  depends_on:
+    - postgres
+    - redis
+    - airflow-init
+
+services:
+  postgres:
+    image: postgres:13
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" 
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    env_file:
+      - ./.env
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+  
+  airflow-init:
+    image: apache/airflow:2.7.1-python3.9
+    depends_on:
+      - postgres
+    command: >
+      bash -c "
+      airflow db migrate && 
+      airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin"
+    env_file:
+      - ./.env
+
+  airflow-webserver:
+    <<: *airflow-common
+    image: apache/airflow:2.7.1-python3.9
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init: 
+        condition: service_completed_successfully
+    restart: always
+    command: ["webserver"]
+
+  airflow-scheduler:
+    <<: *airflow-common
+    image: apache/airflow:2.7.1-python3.9
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init: 
+        condition: service_completed_successfully
+    restart: always
+    command: ["scheduler"]
+
+  airflow-worker:
+    <<: *airflow-common
+    image: apache/airflow:2.7.1-python3.9
+    depends_on:
+      - redis
+      - postgres
+      - airflow-init
+    restart: always
+    command: ["celery", "worker"]
+
+  airflow-reloader:
+    <<: *airflow-common
+    image: apache/airflow:2.7.1-python3.9
+    entrypoint: ["python", "/opt/airflow/dags/reloader.py"]
+    depends_on:
+      - airflow-webserver
+      - airflow-scheduler
+    restart: always
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: debug@debug.com
+      PGADMIN_DEFAULT_PASSWORD: debug
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    restart: always
+
+  docs:
+    build:
+      context: .
+      dockerfile: ./docs/Dockerfile
+    image: pipeline_etl_docs
+    container_name: pipeline_etl_docs
+    volumes:
+      - .:/app/:z
+    restart: always
+    ports:
+      - "9021:9000"
+    env_file:
+      - ./.env
+    command: mkdocs serve -a 0.0.0.0:9000
+
+
+
+
+
+
+# volumes:
+#   postgres-db-volume: {}
+
+# x-airflow-common:
+#   &airflow-common
+#   build:
+#     context: .
+#     dockerfile: ./Dockerfile
+#     args:
+#       BUILD_ENVIRONMENT: "local"
+#   env_file:
+#     - ./.env
+#   volumes:
+#     - ./airflow/dags:/hr-airflow/airflow/dags
+#     - ./airflow/dags:/hr-airflow/airflow/data
+#     - ./airflow/logs:/hr-airflow/airflow/logs
+#     - ./airflow/plugins:/hr-airflow/airflow/plugins
+#     - ./airflow/config/airflow.cfg:/hr-airflow/airflow/airflow.cfg
+#   depends_on:
+#     - postgres
+#     - redis
+#     - airflow-init
+
+# services:
+#   postgres:
+#     image: postgres:13
+#     container_name: postgres
+#     env_file:
+#       - ./.env
+#     ports:
+#       - "5439:5432"
+#     volumes:
+#       - ./airflow/data:/var/lib/postgresql/data
+#       - postgres-db-volume:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD", "pg_isready", "-U", "airflow"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: 1000m
+#         max-file: "20"
+#     mem_limit: 512M
+
+
+#   redis:
+#     image: redis:latest
+#     container_name: pipeline_etl_redis
+#     ports:
+#       - 6382:6379
+#     healthcheck:
+#       test: [ "CMD", "redis-cli", "ping" ]
+#       interval: 5s
+#       timeout: 30s
+#       retries: 50
+#     mem_limit: 512M
+#     restart: always
+
+#   airflow-init:
+#     <<: *airflow-common
+#     container_name: pipeline_etl_initdb
+#     command: start_initdb
+#     # stdin_open: true # docker run -i
+#     # tty: true # docker run -t
+#     depends_on:
+#       - postgres
+#       - redis
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: 1000m
+#         max-file: "20"
+#     # restart: always
+
+#   airflow-webserver:
+#     <<: *airflow-common
+#     command: start_server
+#     container_name: pipeline_etl_webserver
+#     ports:
+#       - 8080:8080
+#     healthcheck:
+#       test:
+#         [
+#           "CMD",
+#           "curl",
+#           "--fail",
+#           "http://localhost:8080/health"
+#         ]
+#       interval: 10s
+#       timeout: 20s
+#       retries: 10
+#     mem_limit: 2G
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: 1000m
+#         max-file: "20"
+#     restart: always
+
+#   airflow-scheduler:
+#     <<: *airflow-common
+#     command: start_scheduler
+#     container_name: pipeline_etl_scheduler
+#     healthcheck:
+#       test:
+#         - CMD
+#         - python
+#         - -Wignore
+#         - -c
+#         - |
+#           import os
+#           os.environ['AIRFLOW__CORE__LOGGING_LEVEL'] = 'ERROR'
+#           os.environ['AIRFLOW__LOGGING__LOGGING_LEVEL'] = 'ERROR'
+#           from airflow.jobs.scheduler_job import SchedulerJob
+#           from airflow.utils.net import get_hostname
+#           import sys
+#           job = SchedulerJob.most_recent_job()
+#           sys.exit(0 if job.is_alive() and job.hostname == get_hostname() else 1)
+#       interval: 30s
+#       timeout: 100s
+#       retries: 3
+#     mem_limit: 2G
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: 1000m
+#         max-file: "20"
+#     restart: always
+
+#   airflow-worker-1:
+#     <<: *airflow-common
+#     command: start_worker
+#     container_name: pipeline_etl_worker_1
+#     mem_limit: 2G
+#     shm_size: 2G
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: 1000m
+#         max-file: "20"
+#     restart: always
+
+
+
+#   docs:
+#     build:
+#       context: .
+#       dockerfile: ./docs/Dockerfile
+#       args:
+#         BUILD_ENVIRONMENT: "local"
+#     image: airflow_docs_server
+#     container_name: airflow_docs_server
+#     volumes:
+#       - .:/app/:z
+#     restart: always
+#     ports:
+#       - "9028:9000"
+#     env_file:
+#       - ./.env
+#     command: start_docs

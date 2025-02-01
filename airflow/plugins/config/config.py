@@ -1,0 +1,1 @@
+TWITTERSCRAPER_LOG = "twitterscraper_log"
