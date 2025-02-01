@@ -65,3 +65,17 @@ docker-compose down
 ## Creating DAGs
 
 You can create your DAG files in the `dags` directory. Airflow will automatically detect and load them. Ensure that your DAG files follow the proper Python syntax and conventions.
+
+## Project objective
+
+The objective of this project is to build a data pipeline using Airflow for sentiment analysis from Twitter data. The pipeline is designed to:
+- Collect tweets in real time.
+- Perform data pre-processing (cleaning and tokenization).
+- Apply a sentiment analysis model.
+- Aggregate results to create reports and interactive visualizations.
+
+Here's a visual representation of the pipeline:
+
+![Data Pipeline for Sentiment Analysis](docs/docs/markmap.png)
+
+Translated with DeepL.com (free version)
